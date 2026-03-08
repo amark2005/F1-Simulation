@@ -1,9 +1,12 @@
+#include <cmath>
 #include <functional>
 #include <iostream>
 #include <string>
 #include <thread>
 #include <mutex>
 #include <random>
+#include <chrono>
+#include <fstream>
 #define TRACK_LENGTH 3337
 #define TRACKLAP_COUNT 78
 using std::cout;
@@ -12,7 +15,7 @@ using std::thread;
 std::mutex mux;
 double G_fastlap=101.691;
 string leader;
-
+std::ofstream lognow("race.csv");
 
 struct car{
   string team;
@@ -41,13 +44,27 @@ int randi(int min, int max) {
   std::uniform_int_distribution<int> dist(min, max);
   return dist(gen);
 }
+void pitstop(car& apx,int i){
+  if(i==TRACKLAP_COUNT/2){
+    apx.laptime+=randi(2,5);
+  }
+}
 void carrun(car& apx){
   for(int i=0;i<TRACKLAP_COUNT;i++){
-    double speed_vary=randi(-50,50);
-    apx.speed=apx.topspeed+speed_vary;
-    apx.laptime=(TRACK_LENGTH/1000.0)/apx.speed*3.8;
+    double speed_vary=randi(-5,5);
+    double fuelburn=apx.fuelload/TRACKLAP_COUNT;
+    apx.fuelload-=fuelburn;
+    apx.mass=800+apx.fuelload;
+    double mass_factor=1.0+(apx.mass-800)/10000.0;
+    apx.speed=(apx.topspeed+speed_vary)/mass_factor;
+    apx.laptime=(TRACK_LENGTH/1000.0)/apx.speed*3600.0;
+    pitstop(apx,i);
     apx.lapcount++;
-    
+    apx.totaltime+=apx.laptime;
+    if(randi(1,5000)==1){apx.crashed=true;break;}
+    std::this_thread::sleep_for(
+      std::chrono::seconds(static_cast<int>(apx.laptime / 100))
+    );
     if(apx.laptime<apx.bestlap){apx.bestlap=apx.laptime;}
     mux.lock();
     if(apx.bestlap<G_fastlap){G_fastlap=apx.bestlap;leader=apx.team;cout<<"The New Leader is "<<apx.team<<"\n";}
@@ -56,7 +73,18 @@ void carrun(car& apx){
     cout<<apx.team<<"\tSpeed: "<<apx.speed<<"\t"<<"Lap Time: "<<apx.laptime<<"\t"<<"Lap Count: "<<apx.lapcount<<"\t\n";
     cout<<apx.team<<" Best Lap time: "<<apx.bestlap<<"\n";}
 
+    {
+      std::lock_guard<std::mutex> lock(mux);
+  
+      lognow << apx.lapcount << ","
+           << apx.team << ","
+           << apx.speed << ","
+           << apx.laptime << ","
+           << apx.bestlap << "\n";
   }
+
+  }
+  if(apx.crashed==true){cout<<apx.team<<" is Crashed :(\n";apx.position=0;}
 }
 
 int main(){
@@ -65,6 +93,7 @@ int main(){
   cout<<"\tWelcome to F1\n";
   cout<<"\t    Monaco\n";
   cout<<"********************************\n\n";
+  lognow << "lap,teams,speed,laptime,bestlap\n";
   car Mercedes={"Mercedes",340,50};
   car Ferrari={"Ferrari",340,50};
   car Redbull={"RedBull",340,50};
@@ -74,9 +103,14 @@ int main(){
   merc.join();
   ferr.join();
   redb.join();
+
+  //std::vector<int> pole={Mercedes.position,Ferrari.position,Redbull.position};
+  //std::ranges::sort(pole,std::ranges::greater());
   cout<<"\n";
   cout<<"~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n";
-  cout<<"\tThe Race is Over!!!!\n";
+  cout<<"\tThe Race is Over!!!!\n\n";
+  //cout<<"Grid\n";
+  //for(int i=0;i<pole.size();i++)cout<<"Position "<<pole[i];
   cout<<"\tThe Winner is "<<leader<<"\n";
   cout<<"\tFastest Lap: "<<G_fastlap<<"\n";
   cout<<"~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n\n";

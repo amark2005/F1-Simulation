@@ -1,8 +1,8 @@
 # Variables
 CXX      := g++
-CXXFLAGS := -std=c++17 -O3 -Wall -Wextra
-TARGET   := main
-SRC      := main.cpp
+CXXFLAGS := -std=c++20 -O3 -Wall -Wextra
+TARGET   := engine
+SRC      := engine.cpp
 
 # Compatibility Flags:
 # -static: Links all libraries (including glibc) statically.
