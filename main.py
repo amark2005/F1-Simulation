@@ -1,5 +1,29 @@
+import os
+import platform
+import subprocess
+import sys
 import pandas as pd
 import matplotlib.pyplot as plt
+
+system = platform.system()
+
+compile_cmd = "g++ -std=c++20 -O3 -Wall -Wextra -pthread engine.cpp -o engine"
+binary = "./engine" if os.name != "nt" else "engine.exe"
+
+if not os.path.exists(binary):
+    print("Binary not found. Compiling engine.cpp...")
+    result = subprocess.run(compile_cmd, shell=True)
+
+    if result.returncode != 0:
+        print("Compilation failed.")
+        sys.exit(1)
+
+print("Running race simulator...")
+subprocess.run(binary, shell=True)
+
+if not os.path.exists("race.csv"):
+    print("race.csv not generated.")
+    sys.exit(1)
 
 df = pd.read_csv("race.csv")
 df = df.sort_values(["teams","lap"])
@@ -49,5 +73,6 @@ axes[3].set_ylabel("Tyre Wear")
 axes[3].legend()
 axes[3].grid(True)
 
-plt.tight_layout()
+plt.tight_layout(pad=3.0) 
 plt.show()
+
