@@ -1,4 +1,3 @@
-#include <cmath>
 #include <functional>
 #include <iostream>
 #include <string>
@@ -16,7 +15,12 @@ std::mutex mux;
 double G_fastlap=101.691;
 string leader;
 std::ofstream lognow("race.csv");
-
+int randi(int min, int max) {
+  static std::random_device rd;
+  static std::mt19937 gen(rd());
+  std::uniform_int_distribution<int> dist(min, max);
+  return dist(gen);
+}
 struct car{
   string team;
   double topspeed;
@@ -28,25 +32,27 @@ struct car{
   double fuelload;
   int position;
   bool crashed;
+  double tyre_wear;
+  int pitlap;
+  double tyre_thresh;
 
   car(string teamo,double topspeedo,double fuelo){
     lapcount=0;position=0;bestlap=9999;crashed=false;fuelload=fuelo;
     mass=800+fuelload;
     team=teamo;topspeed=topspeedo;
+    tyre_wear=1.0;pitlap=randi(20,55);
+    tyre_thresh=randi(16,20)/10.0;
   }
 };
 
 
 
-int randi(int min, int max) {
-  static std::random_device rd;
-  static std::mt19937 gen(rd());
-  std::uniform_int_distribution<int> dist(min, max);
-  return dist(gen);
-}
-void pitstop(car& apx,int i){
-  if(i==TRACKLAP_COUNT/2){
+
+void pitstop(car& apx){
+  
+  if(apx.tyre_wear>apx.tyre_thresh){
     apx.laptime+=randi(2,5);
+    apx.tyre_wear=1.0;
   }
 }
 void carrun(car& apx){
@@ -58,9 +64,10 @@ void carrun(car& apx){
     double mass_factor=1.0+(apx.mass-800)/10000.0;
     apx.speed=(apx.topspeed+speed_vary)/mass_factor;
     apx.laptime=(TRACK_LENGTH/1000.0)/apx.speed*3600.0;
-    pitstop(apx,i);
+    pitstop(apx);
     apx.lapcount++;
-    apx.totaltime+=apx.laptime;
+    apx.tyre_wear+=0.015;
+    apx.laptime*=apx.tyre_wear;
     if(randi(1,5000)==1){apx.crashed=true;break;}
     std::this_thread::sleep_for(
       std::chrono::seconds(static_cast<int>(apx.laptime / 100))
@@ -80,7 +87,8 @@ void carrun(car& apx){
            << apx.team << ","
            << apx.speed << ","
            << apx.laptime << ","
-           << apx.bestlap << "\n";
+           << apx.bestlap << ","
+           << apx.tyre_wear << "\n";
   }
 
   }
@@ -93,7 +101,7 @@ int main(){
   cout<<"\tWelcome to F1\n";
   cout<<"\t    Monaco\n";
   cout<<"********************************\n\n";
-  lognow << "lap,teams,speed,laptime,bestlap\n";
+  lognow << "lap,teams,speed,laptime,bestlap,tyre_wear\n";
   car Mercedes={"Mercedes",340,50};
   car Ferrari={"Ferrari",340,50};
   car Redbull={"RedBull",340,50};
